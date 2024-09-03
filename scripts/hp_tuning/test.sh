@@ -1,0 +1,26 @@
+torchrun --nproc_per_node=2 \
+    -m open_clip_train.main \
+    --model ViT-B-32 \
+    --pretrained openai \
+    --train-data /datasets/PMC-15M/train.jsonl \
+    --val-data /datasets/PMC-15M/test.jsonl \
+    --dataset-type jsonl \
+    --data-img-key media_name \
+    --data-caption-key caption \
+    --data-img-rootdir /datasets/PMC-15M/figures/ \
+    --train-num-samples 65422 \
+    --val-num-samples  \
+    --batch-size 8 \
+    --accum-freq 1 \
+    --workers 4 \
+    --lr 1e-4 \
+    --lr-scheduler cosine \
+    --epochs 100 \
+    --warmup 10 \
+    --wd 0.1 \
+    --name PMC15M-HPTune-VitB32 \
+    --resume latest \
+    --gather-with-grad \
+    --logs /checkpoint/$USER/$SLURM_JOBID/ \
+    --zeroshot-frequency 1 \
+    --report-to wandb
