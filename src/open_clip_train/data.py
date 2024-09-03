@@ -42,8 +42,45 @@ class CsvDataset(Dataset):
         return len(self.captions)
 
     def __getitem__(self, idx):
-        images = self.transforms(Image.open(str(self.images[idx])))
-        texts = self.tokenize([str(self.captions[idx])])[0]
+        image_filename = str(self.images[idx])
+        try:
+            images = self.transforms(Image.open(image_filename))
+            texts = self.tokenize([str(self.captions[idx])])[0]
+            return images, texts
+        except Exception:
+            logging.error(f"Error loading image {image_filename}")
+            idx = (idx + 1) % len(self)
+            return self.__getitem__(idx)
+
+
+class JsonlDataset(Dataset):
+    def __init__(
+        self, input_filename, transforms, img_key, caption_key, img_rootdir="", tokenizer=None
+    ):
+        logging.debug(f"Loading jsonl data from {input_filename}.")
+
+        with open(input_filename, "r") as f:
+            data = [json.loads(line) for line in f]
+        self.images = list(os.path.join(d[img_key], d["media_url"].split("/")[-1]) for d in data)  # Works ONLY for PMC-15M right now
+        self.captions = list(d[caption_key] for d in data)
+        self.transforms = transforms
+        self.img_rootdir = img_rootdir
+        logging.debug("Done loading data.")
+
+        self.tokenize = tokenizer
+
+    def __len__(self):
+        return len(self.captions)
+
+    def __getitem__(self, idx):
+        image_path = os.path.join(self.img_rootdir, str(self.images[idx]))
+        try:
+            images = self.transforms(Image.open(image_path))
+            texts = self.tokenize([str(self.captions[idx])])[0]
+        except Exception:
+            logging.error(f"Error loading image {image_path}")
+            idx = (idx + 1) % len(self)
+            return self.__getitem__(idx)
         return images, texts
 
 
@@ -449,10 +486,39 @@ def get_csv_dataset(args, preprocess_fn, is_train, epoch=0, tokenizer=None):
     dataset = CsvDataset(
         input_filename,
         preprocess_fn,
-        img_key=args.csv_img_key,
-        caption_key=args.csv_caption_key,
-        sep=args.csv_separator,
+        img_key=args.data_img_key,
+        caption_key=args.data_caption_key,
+        sep=args.data_separator,
         tokenizer=tokenizer
+    )
+    num_samples = len(dataset)
+    sampler = DistributedSampler(dataset) if args.distributed and is_train else None
+    shuffle = is_train and sampler is None
+    dataloader = DataLoader(
+        dataset,
+        batch_size=args.batch_size,
+        shuffle=shuffle,
+        num_workers=args.workers,
+        pin_memory=True,
+        sampler=sampler,
+        drop_last=is_train,
+    )
+    dataloader.num_samples = num_samples
+    dataloader.num_batches = len(dataloader)
+
+    return DataInfo(dataloader, sampler)
+
+
+def get_jsonl_dataset(args, preprocess_fn, is_train, epoch=0, tokenizer=None):
+    input_filename = args.train_data if is_train else args.val_data
+    assert input_filename
+    dataset = JsonlDataset(
+        input_filename,
+        preprocess_fn,
+        img_key=args.data_img_key,
+        caption_key=args.data_caption_key,
+        img_rootdir=args.data_img_rootdir,
+        tokenizer=tokenizer,
     )
     num_samples = len(dataset)
     sampler = DistributedSampler(dataset) if args.distributed and is_train else None
@@ -528,6 +594,8 @@ def get_dataset_fn(data_path, dataset_type):
         return get_wds_dataset
     elif dataset_type == "csv":
         return get_csv_dataset
+    elif dataset_type == "jsonl":
+        return get_jsonl_dataset
     elif dataset_type == "synthetic":
         return get_synthetic_dataset
     elif dataset_type == "auto":

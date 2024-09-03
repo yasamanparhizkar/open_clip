@@ -61,7 +61,7 @@ def parse_args(args):
     )
     parser.add_argument(
         "--dataset-type",
-        choices=["webdataset", "csv", "synthetic", "auto"],
+        choices=["webdataset", "csv", "synthetic", "auto", "jsonl"],
         default="auto",
         help="Which type of dataset to process."
     )
@@ -72,22 +72,28 @@ def parse_args(args):
         help="Whether to use sampling with replacement for webdataset shard selection."
     )
     parser.add_argument(
-        "--csv-separator",
+        "--data-separator",
         type=str,
         default="\t",
         help="For csv-like datasets, which separator to use."
     )
     parser.add_argument(
-        "--csv-img-key",
+        "--data-img-key",
         type=str,
         default="filepath",
         help="For csv-like datasets, the name of the key for the image paths."
     )
     parser.add_argument(
-        "--csv-caption-key",
+        "--data-caption-key",
         type=str,
         default="title",
         help="For csv-like datasets, the name of the key for the captions."
+    )
+    parser.add_argument(
+        "--data-img-rootdir",
+        type=str,
+        default="",
+        help="Directory where images of the training dataset are stored."
     )
     parser.add_argument(
         "--imagenet-val",
