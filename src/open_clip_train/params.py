@@ -452,6 +452,12 @@ def parse_args(args):
         action="store_true",
         help='Use SigLip (sigmoid) loss.'
     )
+    parser.add_argument(
+        "--val-no-retrieval",
+        default=False,
+        action="store_true",
+        help="Whether to remove retrieval from the validation loop. If retrieval is removed, only loss is computed."
+    )
 
     args = parser.parse_args(args)
 

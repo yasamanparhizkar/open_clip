@@ -270,7 +270,8 @@ def evaluate(model, data, epoch, args, tb_writer=None, tokenizer=None):
         # all_image_features @ all_text_features will blow up memory and compute very quickly
         cumulative_loss = 0.0
         cumulative_gen_loss = 0.0
-        all_image_features, all_text_features = [], []
+        if not args.val_no_retrieval:
+            all_image_features, all_text_features = [], []
         with torch.inference_mode():
             for i, batch in enumerate(dataloader):
                 images, texts = batch
@@ -282,10 +283,11 @@ def evaluate(model, data, epoch, args, tb_writer=None, tokenizer=None):
                     image_features = model_out["image_features"]
                     text_features = model_out["text_features"]
                     logit_scale = model_out["logit_scale"]
-                    # features are accumulated in CPU tensors, otherwise GPU memory exhausted quickly
-                    # however, system RAM is easily exceeded and compute time becomes problematic
-                    all_image_features.append(image_features.cpu())
-                    all_text_features.append(text_features.cpu())
+                    if not args.val_no_retrieval:
+                        # features are accumulated in CPU tensors, otherwise GPU memory exhausted quickly
+                        # however, system RAM is easily exceeded and compute time becomes problematic
+                        all_image_features.append(image_features.cpu())
+                        all_text_features.append(text_features.cpu())
                     logit_scale = logit_scale.mean()
                     logits_per_image = logit_scale * image_features @ text_features.t()
                     logits_per_text = logits_per_image.t()
@@ -311,11 +313,14 @@ def evaluate(model, data, epoch, args, tb_writer=None, tokenizer=None):
                         logging.info(
                             f"Generative Loss: {cumulative_gen_loss / num_samples:.6f}\t")
 
-            val_metrics = get_clip_metrics(
-                image_features=torch.cat(all_image_features),
-                text_features=torch.cat(all_text_features),
-                logit_scale=logit_scale.cpu(),
-            )
+            if args.val_no_retrieval:
+                val_metrics = {}
+            else:
+                val_metrics = get_clip_metrics(
+                    image_features=torch.cat(all_image_features),
+                    text_features=torch.cat(all_text_features),
+                    logit_scale=logit_scale.cpu(),
+                )
             loss = cumulative_loss / num_samples
             metrics.update(
                 {**val_metrics, "clip_val_loss": loss.item(), "epoch": epoch, "num_samples": num_samples}
