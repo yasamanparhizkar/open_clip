@@ -1,3 +1,4 @@
+import copy
 import numbers
 import random
 import warnings
@@ -7,7 +8,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import torch
 import torchvision.transforms.functional as F
 from torchvision.transforms import Normalize, Compose, RandomResizedCrop, InterpolationMode, ToTensor, Resize, \
-    CenterCrop, ColorJitter, Grayscale
+    CenterCrop, ColorJitter, Grayscale, RandomCrop
 
 from .constants import OPENAI_DATASET_MEAN, OPENAI_DATASET_STD
 from .utils import to_2tuple
@@ -70,6 +71,9 @@ class AugmentationCfg:
     # params for simclr_jitter_gray
     color_jitter_prob: float = None
     gray_scale_prob: float = None
+    quilt_crop: float = False
+    num_views: int = 1
+    aspect_ratio: float = 0.7
 
 
 def _setup_size(size, error_msg):
@@ -271,6 +275,15 @@ class gray_scale(object):
             return img
 
 
+class MultiViewCompose:
+    def __init__(self, transforms, num_views=2):
+        self.transforms = transforms
+        self.num_views = num_views
+
+    def __call__(self, image):
+        return [self.transforms(image) for _ in range(self.num_views)]
+
+
 def image_transform(
         image_size: Union[int, Tuple[int, int]],
         is_train: bool,
@@ -331,14 +344,26 @@ def image_transform(
                 **aug_cfg_dict,
             )
         else:
-            train_transform = [
-                RandomResizedCrop(
-                    image_size,
-                    scale=aug_cfg_dict.pop('scale'),
-                    interpolation=InterpolationMode.BICUBIC,
-                ),
-                _convert_to_rgb,
-            ]
+            if aug_cfg.quilt_crop:
+                train_transform = [
+                    ResizeKeepRatio(
+                        512,
+                        interpolation=InterpolationMode.BICUBIC,
+                    ),
+                    RandomCrop(
+                        224,
+                        ),
+                    _convert_to_rgb,
+                ]
+            else:
+                train_transform = [
+                    RandomResizedCrop(
+                        image_size,
+                        scale=aug_cfg_dict.pop('scale'),
+                        interpolation=InterpolationMode.BICUBIC,
+                    ),
+                    _convert_to_rgb,
+                ]
             if aug_cfg.color_jitter_prob:
                 assert aug_cfg.color_jitter is not None and len(aug_cfg.color_jitter) == 4
                 train_transform.extend([
@@ -355,6 +380,12 @@ def image_transform(
             train_transform = Compose(train_transform)
             if aug_cfg_dict:
                 warnings.warn(f'Unused augmentation cfg items, specify `use_timm` to use ({list(aug_cfg_dict.keys())}).')
+        if aug_cfg.num_views> 1:
+            if aug_cfg.aspect_ratio == 1:
+                new_train_transform = copy.deepcopy(train_transform)
+                new_train_transform.transforms[0].ratio = (1,1)
+                return MultiViewCompose(new_train_transform, aug_cfg.num_views)
+            return MultiViewCompose(train_transform, aug_cfg.num_views)
         return train_transform
     else:
         if resize_mode == 'longest':
