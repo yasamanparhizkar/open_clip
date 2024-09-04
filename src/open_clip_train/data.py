@@ -61,7 +61,7 @@ class JsonlDataset(Dataset):
 
         with open(input_filename, "r") as f:
             data = [json.loads(line) for line in f]
-        self.images = list(os.path.join(d[img_key], d["media_url"].split("/")[-1]) for d in data)  # Works ONLY for PMC-15M right now
+        self.images = list(d[img_key] for d in data)
         self.captions = list(d[caption_key] for d in data)
         self.transforms = transforms
         self.img_rootdir = img_rootdir
