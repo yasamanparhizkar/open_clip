@@ -2,16 +2,19 @@ torchrun --nproc_per_node=2 \
     -m open_clip_train.main \
     --model ViT-B-32 \
     --pretrained openai \
-    --train-data /datasets/PMC-15M/train.jsonl \
-    --val-data /datasets/PMC-15M/test.jsonl \
+    --train-data /datasets/PMC-15M/processed/train_dummy_.jsonl \
+    --val-data /datasets/PMC-15M/processed/test_dummy_.jsonl \
     --dataset-type jsonl \
     --data-img-key media_name \
-    --data-caption-key caption \
+    --data-caption-key caption_name \
     --data-img-rootdir /datasets/PMC-15M/figures/ \
-    --train-num-samples 65422 \
-    --val-num-samples  \
-    --batch-size 8 \
+    --data-cap-rootdir /datasets/PMC-15M/captions/ \
+    --train-num-samples 1000 \
+    --val-num-samples 500 \
+    --val-no-retrieval \
+    --batch-size 32 \
     --accum-freq 1 \
+    --aug-cfg quilt_crop=True \
     --workers 4 \
     --lr 1e-4 \
     --lr-scheduler cosine \
