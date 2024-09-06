@@ -149,5 +149,8 @@ src/misc
 src/debug
 core.*
 
+# slurm outputs
+*.out
+
 # Allow
 !src/evaluation/misc/results_dbs/*

@@ -96,6 +96,12 @@ def parse_args(args):
         help="Directory where images of the training dataset are stored."
     )
     parser.add_argument(
+        "--data-cap-rootdir",
+        type=str,
+        default="",
+        help="Directory where captions are stored."
+    )
+    parser.add_argument(
         "--imagenet-val",
         type=str,
         default=None,

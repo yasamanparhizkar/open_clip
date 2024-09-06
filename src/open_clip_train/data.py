@@ -55,7 +55,7 @@ class CsvDataset(Dataset):
 
 class JsonlDataset(Dataset):
     def __init__(
-        self, input_filename, transforms, img_key, caption_key, img_rootdir="", tokenizer=None
+        self, input_filename, transforms, img_key, caption_key, img_rootdir="", cap_rootdir="", tokenizer=None
     ):
         logging.debug(f"Loading jsonl data from {input_filename}.")
 
@@ -65,6 +65,7 @@ class JsonlDataset(Dataset):
         self.captions = list(d[caption_key] for d in data)
         self.transforms = transforms
         self.img_rootdir = img_rootdir
+        self.cap_rootdir = cap_rootdir
         logging.debug("Done loading data.")
 
         self.tokenize = tokenizer
@@ -74,9 +75,12 @@ class JsonlDataset(Dataset):
 
     def __getitem__(self, idx):
         image_path = os.path.join(self.img_rootdir, str(self.images[idx]))
+        text_path = os.path.join(self.cap_rootdir, str(self.captions[idx]))
         try:
             images = self.transforms(Image.open(image_path))
-            texts = self.tokenize([str(self.captions[idx])])[0]
+            with open(text_path) as f:
+                texts = f.read()
+            texts = self.tokenize([str(texts)])[0]
         except Exception:
             logging.error(f"Error loading image {image_path}")
             idx = (idx + 1) % len(self)
@@ -518,6 +522,7 @@ def get_jsonl_dataset(args, preprocess_fn, is_train, epoch=0, tokenizer=None):
         img_key=args.data_img_key,
         caption_key=args.data_caption_key,
         img_rootdir=args.data_img_rootdir,
+        cap_rootdir=args.data_cap_rootdir,
         tokenizer=tokenizer,
     )
     num_samples = len(dataset)
