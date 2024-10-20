@@ -1,5 +1,7 @@
-torchrun --nproc_per_node=2 \
-    -m open_clip_train.main \
+cd openpmcvl/experiment/open_clip
+export PYTHONPATH="$PYTHONPATH:$PWD/src"
+
+python -m open_clip_train.main \
     --model ViT-B-32 \
     --pretrained openai \
     --train-data /datasets/PMC-15M/processed/train_dummy_.jsonl \
